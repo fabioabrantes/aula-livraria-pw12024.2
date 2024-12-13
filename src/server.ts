@@ -1,5 +1,5 @@
-import express from 'express';
-import {v4 as geraNumeroAleatorio} from 'uuid';
+import express, { Request, Response, NextFunction } from 'express';
+import { v4 as geraNumeroAleatorio } from 'uuid';
 
 type Book = {
   id: string;
@@ -17,17 +17,33 @@ type User = {
 let clients: User[] = [];
 
 const server = express();
+server.request.usuario
+
 server.use(express.json());
-//lista todos os usuarios
-server.get('/users', (request, response) => {
- return response.status(200).json(clients);
-});
-server.get('/users/:id', (request, response) => {
+
+function verifyUserById(request: Request, response: Response, next: NextFunction) {
   const id = request.params.id;
   const user = clients.find(client => client.id === id);
-  if(!user){
+  if (!user) {
     return response.status(400).json("error:usuário inexistente");
   }
+
+  request.usuario = user;
+  next();
+}
+server.put('/users/:id', verifyUserById, (request, response) => {
+  const { name, cpf } = request.body;
+  const user = request.usuario;
+  user.cpf = cpf;
+  user.name = name;
+  return response.status(200).json(user);
+});
+//lista todos os usuarios
+server.get('/users', (request, response) => {
+  return response.status(200).json(clients);
+});
+server.get('/users/:id',verifyUserById, (request, response) => {
+  const user =request.usuario;
   return response.status(200).json(user);
 })
 server.post('/users', (request, response) => {
@@ -43,22 +59,18 @@ server.post('/users', (request, response) => {
     return response.status(400).json("error:usaario nao cadastrado")
   }
   clients.push(user);
-  return response.status(201).json({message:"cadastro realizado com sucesso"});
+  return response.status(201).json({ message: "cadastro realizado com sucesso" });
 });
-server.delete('/users/:id', (request, response) => {
-  const id = request.params.id;
-  const updatedUsers = clients.filter(client => client.id !== id);
-  if(updatedUsers.length === clients.length){
+server.delete('/users/:id',verifyUserById, (request, response) => {
+  const user = request.usuario;
+  const updatedUsers = clients.filter(client => client.id !== user.id);
+  if (updatedUsers.length === clients.length) {
     return response.status(400).json("error:usuário inexistente.");
   }
   clients = [...updatedUsers];
-  return response.status(400).json({message:"usuario removido"});
+  return response.status(400).json({ message: "usuario removido" });
 });
-server.put('/users/:id', (request, response) => {
-  const nome = request.params.name;
-  const corpo = request.body;
-  return response.status(200).json({ nome, corpo });
-});
+
 
 // CRUD DA TABELA BOOKS
 
